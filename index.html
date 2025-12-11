@@ -106,6 +106,56 @@
             background-clip: text;
             animation: shine 3s linear infinite;
         }
+
+        /* Background Visuals */
+        #left-bg-visuals {
+            position: absolute;
+            inset: 0;
+            overflow: hidden;
+            pointer-events: none;
+            z-index: 0;
+        }
+        
+        .bg-visual-item {
+            position: absolute;
+            opacity: 0.15;
+            font-size: 2rem;
+            user-select: none;
+        }
+
+        @keyframes anim-wiggle {
+            0%, 100% { transform: rotate(-10deg); }
+            50% { transform: rotate(10deg); }
+        }
+        @keyframes anim-float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+        @keyframes anim-pop {
+            0% { transform: scale(0.8); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(0.8); }
+        }
+        @keyframes anim-bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-30px) scaleY(0.9); }
+        }
+        @keyframes anim-drift {
+            0% { transform: translateX(-10px) rotate(0deg); }
+            100% { transform: translateX(10px) rotate(5deg); }
+        }
+        @keyframes anim-pulse-glow {
+            0% { transform: scale(1); filter: brightness(1); }
+            50% { transform: scale(1.1); filter: brightness(1.5); }
+            100% { transform: scale(1); filter: brightness(1); }
+        }
+
+        .anim-wiggle { animation: anim-wiggle 2s ease-in-out infinite; }
+        .anim-float { animation: anim-float 4s ease-in-out infinite; }
+        .anim-pop { animation: anim-pop 0.5s ease-in-out infinite; }
+        .anim-bounce { animation: anim-bounce 1s ease-in-out infinite; }
+        .anim-drift { animation: anim-drift 5s alternate infinite; }
+        .anim-pulse-glow { animation: anim-pulse-glow 3s ease-in-out infinite; }
     </style>
 </head>
 <body class="bg-pattern text-white h-screen flex flex-col overflow-hidden">
@@ -138,16 +188,17 @@
     <div class="flex-1 flex overflow-hidden">
         
         <!-- Left Column: The Clicker -->
-        <div class="w-full md:w-1/3 flex flex-col items-center justify-center relative p-6 border-r border-gray-700 bg-gray-900/90 backdrop-blur-sm">
+        <div class="w-full md:w-1/3 flex flex-col items-center justify-center relative p-6 border-r border-gray-700 bg-gray-900/90 backdrop-blur-sm overflow-hidden">
+            <div id="left-bg-visuals"></div>
             
-            <div class="text-center mb-8">
+            <div class="text-center mb-8 z-10">
                 <h2 class="text-gray-400 text-sm uppercase tracking-widest mb-1">Current Vibes</h2>
                 <div id="vibes-display" class="text-5xl font-bold text-yellow-400 drop-shadow-lg">0</div>
                 <div class="text-gray-500 text-sm mt-2">per second: <span id="vps-display" class="text-white">0.0</span></div>
             </div>
 
             <!-- The Big Emoji -->
-            <div class="relative group">
+            <div class="relative group z-10">
                 <div id="click-zone" class="emoji-main text-[150px] leading-none transition-transform active:scale-95 select-none">
                     🙂
                 </div>
@@ -155,11 +206,11 @@
                 <div class="absolute inset-0 border-2 border-dashed border-white/10 rounded-full w-[200px] h-[200px] -left-[25px] -top-[10px] animate-[spin_10s_linear_infinite] pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity"></div>
             </div>
 
-            <div id="rank-name" class="mt-8 text-xl font-bold shiny-text">Neutral Normie</div>
-            <div class="w-64 h-2 bg-gray-700 rounded-full mt-2 overflow-hidden">
+            <div id="rank-name" class="mt-8 text-xl font-bold shiny-text z-10">Neutral Normie</div>
+            <div class="w-64 h-2 bg-gray-700 rounded-full mt-2 overflow-hidden z-10">
                 <div id="progress-bar" class="h-full bg-gradient-to-r from-yellow-400 to-orange-500 w-0 transition-all duration-300"></div>
             </div>
-            <p class="text-xs text-gray-500 mt-1">Next Evolution: <span id="next-evo-cost">100</span> Vibes</p>
+            <p class="text-xs text-gray-500 mt-1 z-10">Next Evolution: <span id="next-evo-cost">100</span> Vibes</p>
 
         </div>
 
@@ -276,8 +327,68 @@
             store: document.getElementById('store-container'),
             floaterContainer: document.getElementById('floating-container'),
             log: document.getElementById('log-container'),
-            news: document.getElementById('news-ticker')
+            news: document.getElementById('news-ticker'),
+            leftBg: document.getElementById('left-bg-visuals')
         };
+
+        // Animation Configuration
+        const ANIM_TYPES = {
+            'cursor': 'anim-wiggle',
+            'grandma': 'anim-float',
+            'groupchat': 'anim-pop',
+            'influencer': 'anim-bounce',
+            'clown': 'anim-bounce',
+            'botfarm': 'anim-pulse-glow',
+            'rocket': 'anim-drift',
+            'satellite': 'anim-drift',
+            'portal': 'anim-pulse-glow'
+        };
+
+        function spawnBuildingVisual(id) {
+            const b = BUILDINGS.find(x => x.id === id);
+            if (!b) return;
+
+            // Cap visuals to avoid lag
+            const currentCount = dom.leftBg.children.length;
+            if (currentCount > 50) return; 
+
+            const el = document.createElement('div');
+            el.className = `bg-visual-item ${ANIM_TYPES[id] || 'anim-float'}`;
+            el.innerText = b.icon;
+            
+            // Random position
+            el.style.left = `${Math.random() * 90}%`;
+            el.style.top = `${Math.random() * 90}%`;
+            
+            // Randomize animation delay/duration slightly for variety
+            el.style.animationDelay = `-${Math.random() * 5}s`;
+            el.style.animationDuration = `${2 + Math.random() * 3}s`;
+
+            dom.leftBg.appendChild(el);
+        }
+
+        function initBackgroundVisuals() {
+            dom.leftBg.innerHTML = '';
+            let totalVisuals = 0;
+            const MAX_VISUALS = 50;
+
+            // Create a flat list of all owned items
+            let allItems = [];
+            BUILDINGS.forEach(b => {
+                const count = state.inventory[b.id];
+                for(let i=0; i<count; i++) {
+                    allItems.push(b.id);
+                }
+            });
+
+            // Shuffle to show a mix if we hit the cap
+            allItems.sort(() => Math.random() - 0.5);
+
+            // Spawn up to MAX_VISUALS
+            for(let i=0; i<Math.min(allItems.length, MAX_VISUALS); i++) {
+                spawnBuildingVisual(allItems[i]);
+            }
+        }
 
         let currentRankIndex = 0;
 
@@ -442,6 +553,8 @@
                 const building = BUILDINGS.find(b => b.id === id);
                 createLog(`Bought ${building.name}`, "text-green-400");
                 
+                spawnBuildingVisual(id);
+
                 updateUI();
             }
         }
@@ -519,6 +632,7 @@
                             if(state.totalVibes >= RANKS[i].threshold) rIndex = i;
                         }
                         evolve(rIndex);
+                        initBackgroundVisuals();
                         createLog("Save loaded successfully.");
                     } catch (e) {
                         console.error("Save file corrupted");
