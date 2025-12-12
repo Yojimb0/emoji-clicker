@@ -156,6 +156,42 @@
         .anim-bounce { animation: anim-bounce 1s ease-in-out infinite; }
         .anim-drift { animation: anim-drift 5s alternate infinite; }
         .anim-pulse-glow { animation: anim-pulse-glow 3s ease-in-out infinite; }
+
+        /* Log Popover */
+        #log-popover {
+            transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            height: 48px; /* Collapsed height */
+        }
+        #log-popover.expanded {
+            height: 320px;
+        }
+
+        /* Farming CSS */
+        .tab-btn {
+            @apply px-4 py-2 text-sm font-bold text-gray-400 border-b-2 border-transparent transition hover:text-white;
+        }
+        .tab-btn.active {
+            @apply text-yellow-400 border-yellow-400;
+        }
+
+        .farm-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            width: 100%;
+            max-width: 300px;
+        }
+        
+        .farm-plot {
+            aspect-ratio: 1;
+            @apply bg-gray-800 rounded-lg border-2 border-gray-700 relative cursor-pointer transition hover:border-gray-500 flex items-center justify-center text-3xl select-none;
+        }
+        
+        .farm-plot:active { transform: scale(0.95); }
+        .farm-plot.locked { @apply opacity-50 cursor-not-allowed bg-gray-900 border-gray-800; }
+        
+        .crop-growth { position: absolute; bottom: 0; left: 0; right: 0; background: #10b981; opacity: 0.2; transition: height 0.5s linear; pointer-events: none; }
+
     </style>
 </head>
 <body class="bg-pattern text-white h-screen flex flex-col overflow-hidden">
@@ -214,14 +250,48 @@
 
         </div>
 
-        <!-- Middle Column: Visualizer / Log (Hidden on small mobile) -->
-        <div class="hidden lg:flex lg:w-1/3 flex-col bg-gray-900/80 p-4 border-r border-gray-700 relative overflow-hidden">
-            <h3 class="text-gray-400 uppercase text-xs font-bold mb-4 tracking-wider">Activity Log</h3>
-            <div id="log-container" class="flex-1 overflow-y-auto space-y-2 font-mono text-sm pr-2 pb-4 flex flex-col-reverse">
-                <!-- Logs go here -->
-                <div class="text-gray-500 italic">Simulation started...</div>
-            </div>
+        <!-- Middle Column: Center Area (Tabs + Views) -->
+        <div id="center-area" class="hidden lg:flex lg:w-1/3 flex-col bg-gray-900/80 border-r border-gray-700 relative overflow-hidden">
             
+            <!-- Tab Bar -->
+            <div class="flex items-center justify-center border-b border-gray-700 bg-gray-900/50 backdrop-blur z-10">
+                <button onclick="switchTab('home')" id="tab-home" class="tab-btn active">Home</button>
+                <button onclick="switchTab('farm')" id="tab-farm" class="tab-btn hidden">Farm 🥕</button>
+            </div>
+
+            <!-- Content Views -->
+            <div class="flex-1 relative overflow-hidden">
+                
+                <!-- Home View -->
+                <div id="view-home" class="absolute inset-0 flex flex-col items-center justify-center p-4">
+                    <div class="text-gray-600 italic text-center">
+                        <i class="fas fa-hammer text-4xl mb-2 opacity-50"></i><br>
+                        Themed activities coming soon...
+                    </div>
+                </div>
+
+                <!-- Farm View -->
+                <div id="view-farm" class="absolute inset-0 flex flex-col items-center p-4 overflow-y-auto hidden">
+                    
+                    <div class="w-full max-w-xs mb-6 bg-gray-800/50 p-3 rounded-lg border border-gray-700 flex justify-between items-center">
+                        <span class="text-gray-400 text-sm">Bio-Vibes:</span>
+                        <span class="text-2xl font-bold text-orange-400">🥕 <span id="bio-vibes-display">0</span></span>
+                    </div>
+
+                    <div id="farm-grid" class="farm-grid mb-8">
+                        <!-- Plots injected via JS -->
+                    </div>
+
+                    <div class="w-full max-w-xs">
+                        <h3 class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Farmers Market</h3>
+                        <div id="farm-market" class="space-y-2">
+                            <!-- Market items injected via JS -->
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
             <!-- Background floating emojis -->
             <div id="bg-canvas" class="absolute inset-0 pointer-events-none z-0 opacity-20 overflow-hidden"></div>
         </div>
@@ -241,6 +311,23 @@
 
     <!-- Floating UI Container -->
     <div id="floating-container" class="absolute inset-0 pointer-events-none overflow-hidden z-50"></div>
+
+    <!-- Log Popover -->
+    <div id="log-popover" class="fixed bottom-4 left-4 z-50 w-80 bg-gray-900 border border-gray-700 rounded-lg shadow-xl overflow-hidden flex flex-col justify-end">
+        <!-- History (Hidden when collapsed) -->
+        <div id="log-history" class="flex-1 overflow-y-auto p-2 space-y-1 font-mono text-xs text-gray-400 bg-gray-900/95 border-b border-gray-800">
+            <!-- Old logs go here -->
+        </div>
+        
+        <!-- Header / Latest Log -->
+        <div id="log-header" class="h-12 bg-gray-800 hover:bg-gray-750 cursor-pointer flex items-center justify-between px-3 transition select-none" onclick="toggleLog()">
+            <div class="flex items-center gap-2 overflow-hidden">
+                <span class="text-green-400 text-xs">●</span>
+                <span id="latest-log" class="text-sm font-mono text-gray-300 truncate">System Ready.</span>
+            </div>
+            <i id="log-toggle-icon" class="fas fa-chevron-up text-gray-500 text-xs transition-transform duration-300"></i>
+        </div>
+    </div>
 
     <script>
         // --- Game Configuration & Data ---
@@ -267,7 +354,8 @@
             { id: 'botfarm', name: 'Bot Farm', icon: '🤖', baseCost: 40000, baseProd: 350, desc: "Artificial vibes generated by the thousands." },
             { id: 'rocket', name: 'Moon Mission', icon: '🚀', baseCost: 200000, baseProd: 1200, desc: "Taking vibes to the literal moon." },
             { id: 'satellite', name: '5G Satellite', icon: '📡', baseCost: 1500000, baseProd: 5000, desc: "Beaming emojis directly into brains." },
-            { id: 'portal', name: 'Vibe Portal', icon: '🌀', baseCost: 20000000, baseProd: 25000, desc: "Opening rifts to the pure dimension of Joy." }
+            { id: 'portal', name: 'Vibe Portal', icon: '🌀', baseCost: 20000000, baseProd: 25000, desc: "Opening rifts to the pure dimension of Joy." },
+            { id: 'garden_patch', name: 'Garden Patch', icon: '🌻', baseCost: 1000, baseProd: 0, desc: "Unlocks the Farming Tab. Grow Bio-Vibes!" }
         ];
 
         const NEWS = [
@@ -288,7 +376,13 @@
             vibes: 0,
             totalVibes: 0, // Lifetime accumulated (for rank)
             startTime: Date.now(),
-            inventory: {} // { buildingId: count }
+            inventory: {}, // { buildingId: count }
+            farming: {
+                unlocked: false,
+                bioVibes: 0,
+                plots: Array(9).fill().map((_, i) => ({ id: i, stage: 0, timer: 0, maxTime: 0 })), // stage: 0=empty, 1=growing, 2=ripe
+                upgrades: {} // { marketId: count }
+            }
         };
 
         // Initialize inventory
@@ -301,12 +395,24 @@
             BUILDINGS.forEach(b => {
                 vps += state.inventory[b.id] * b.baseProd;
             });
+            
+            // Farming Buffs
+            if (state.farming && state.farming.upgrades['fertilizer']) {
+                vps *= (1 + (state.farming.upgrades['fertilizer'] * 0.1));
+            }
+
             return vps;
         };
 
         const getClickPower = () => {
-            // Click power scales slightly with VPS to prevent manual clicking becoming useless
-            return 1 + (getVibesPerSecond() * 0.05); 
+            let power = 1 + (getVibesPerSecond() * 0.05);
+            
+            // Farming Buffs
+            if (state.farming && state.farming.upgrades['cursor_feed']) {
+                power *= (1 + (state.farming.upgrades['cursor_feed'] * 0.5));
+            }
+            
+            return power;
         };
 
         const getCost = (buildingId) => {
@@ -314,6 +420,12 @@
             const count = state.inventory[buildingId];
             return Math.floor(b.baseCost * Math.pow(1.15, count));
         };
+
+        const FARM_MARKET = [
+            { id: 'fertilizer', name: 'Fertilizer', icon: '💩', cost: 10, desc: '+10% Global VPS', effect: (s) => 1.1 },
+            { id: 'gmo_seeds', name: 'GMO Seeds', icon: '🧬', cost: 50, desc: 'Crops grow 2x faster', effect: (s) => 1 }, // Logic handled in growth
+            { id: 'cursor_feed', name: 'Cursor Feed', icon: '💪', cost: 100, desc: '+50% Click Power', effect: (s) => 1.5 }
+        ];
 
         // --- Visual & DOM Handling ---
 
@@ -326,10 +438,43 @@
             nextEvoCost: document.getElementById('next-evo-cost'),
             store: document.getElementById('store-container'),
             floaterContainer: document.getElementById('floating-container'),
-            log: document.getElementById('log-container'),
+            logHistory: document.getElementById('log-history'),
+            latestLog: document.getElementById('latest-log'),
+            logPopover: document.getElementById('log-popover'),
+            logToggleIcon: document.getElementById('log-toggle-icon'),
             news: document.getElementById('news-ticker'),
-            leftBg: document.getElementById('left-bg-visuals')
+            leftBg: document.getElementById('left-bg-visuals'),
+            // Farming DOM
+            tabHome: document.getElementById('tab-home'),
+            tabFarm: document.getElementById('tab-farm'),
+            viewHome: document.getElementById('view-home'),
+            viewFarm: document.getElementById('view-farm'),
+            bioVibes: document.getElementById('bio-vibes-display'),
+            farmGrid: document.getElementById('farm-grid'),
+            farmMarket: document.getElementById('farm-market')
         };
+
+        // ... (ANIM_TYPES and spawnBuildingVisual remain unchanged) ...
+
+        function toggleLog() {
+            dom.logPopover.classList.toggle('expanded');
+            const isExpanded = dom.logPopover.classList.contains('expanded');
+            dom.logToggleIcon.style.transform = isExpanded ? 'rotate(180deg)' : 'rotate(0deg)';
+        }
+
+        function createLog(msg, classes = "") {
+            // Update latest
+            dom.latestLog.innerText = msg;
+            dom.latestLog.className = `text-sm font-mono truncate ${classes}`;
+
+            // Add to history
+            const div = document.createElement('div');
+            div.className = `border-b border-gray-800 pb-1 ${classes}`;
+            div.innerText = `> ${msg}`;
+            
+            dom.logHistory.prepend(div);
+            if (dom.logHistory.children.length > 50) dom.logHistory.lastChild.remove();
+        }
 
         // Animation Configuration
         const ANIM_TYPES = {
@@ -341,7 +486,8 @@
             'botfarm': 'anim-pulse-glow',
             'rocket': 'anim-drift',
             'satellite': 'anim-drift',
-            'portal': 'anim-pulse-glow'
+            'portal': 'anim-pulse-glow',
+            'garden_patch': 'anim-wiggle'
         };
 
         function spawnBuildingVisual(id) {
@@ -432,6 +578,11 @@
                 dom.progressBar.style.width = '100%';
                 dom.nextEvoCost.innerText = "MAX";
             }
+
+            // Unlock Farm Tab
+            if (state.inventory['garden_patch'] > 0) {
+                dom.tabFarm.classList.remove('hidden');
+            }
         }
 
         function evolve(newIndex) {
@@ -503,13 +654,7 @@
             setTimeout(() => el.remove(), 1500);
         }
 
-        function createLog(msg, classes = "") {
-            const div = document.createElement('div');
-            div.className = `border-b border-gray-800 pb-1 ${classes}`;
-            div.innerText = `> ${msg}`;
-            dom.log.prepend(div);
-            if (dom.log.children.length > 20) dom.log.lastChild.remove();
-        }
+
 
         function rotateNews() {
             const text = NEWS[Math.floor(Math.random() * NEWS.length)];
@@ -518,6 +663,118 @@
                 dom.news.innerText = text;
                 dom.news.style.opacity = 1;
             }, 500);
+        }
+
+        // --- Farming Logic ---
+
+        function switchTab(tab) {
+            if (tab === 'home') {
+                dom.viewHome.classList.remove('hidden');
+                dom.viewFarm.classList.add('hidden');
+                dom.tabHome.classList.add('active');
+                dom.tabFarm.classList.remove('active');
+            } else if (tab === 'farm') {
+                dom.viewHome.classList.add('hidden');
+                dom.viewFarm.classList.remove('hidden');
+                dom.tabHome.classList.remove('active');
+                dom.tabFarm.classList.add('active');
+                renderFarm();
+            }
+        }
+
+        function renderFarm() {
+            dom.bioVibes.innerText = state.farming.bioVibes;
+            
+            // Grid
+            dom.farmGrid.innerHTML = '';
+            state.farming.plots.forEach(plot => {
+                const el = document.createElement('div');
+                let content = '';
+                let classes = 'farm-plot';
+                
+                if (plot.stage === 0) {
+                    content = '<span class="text-gray-600 text-sm">Plant<br>100⚡</span>';
+                    el.onclick = () => plant(plot.id);
+                } else if (plot.stage === 1) {
+                    const progress = ((plot.maxTime - plot.timer) / plot.maxTime) * 100;
+                    content = `🌱<div class="crop-growth" style="height: ${progress}%"></div>`;
+                } else if (plot.stage === 2) {
+                    content = '🥕';
+                    classes += ' border-green-400 shadow-[0_0_10px_rgba(74,222,128,0.5)]';
+                    el.onclick = () => harvest(plot.id);
+                }
+
+                el.className = classes;
+                el.innerHTML = content;
+                dom.farmGrid.appendChild(el);
+            });
+
+            // Market
+            dom.farmMarket.innerHTML = '';
+            FARM_MARKET.forEach(item => {
+                const owned = state.farming.upgrades[item.id] || 0;
+                const el = document.createElement('div');
+                el.className = "bg-gray-700 p-2 rounded flex justify-between items-center text-xs";
+                el.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <span class="text-xl">${item.icon}</span>
+                        <div>
+                            <div class="font-bold text-white">${item.name}</div>
+                            <div class="text-gray-400">${item.desc}</div>
+                        </div>
+                    </div>
+                    <button onclick="buyMarketItem('${item.id}')" class="bg-orange-600 hover:bg-orange-500 px-2 py-1 rounded text-white font-bold ${state.farming.bioVibes >= item.cost ? '' : 'opacity-50 cursor-not-allowed'}">
+                        ${item.cost}🥕
+                    </button>
+                `;
+                dom.farmMarket.appendChild(el);
+            });
+        }
+
+        function plant(id) {
+            const cost = 100;
+            if (state.vibes >= cost) {
+                state.vibes -= cost;
+                const plot = state.farming.plots.find(p => p.id === id);
+                plot.stage = 1;
+                
+                // Growth speed
+                let time = 10; // seconds
+                if (state.farming.upgrades['gmo_seeds']) time /= 2;
+                
+                plot.maxTime = time;
+                plot.timer = time;
+                
+                createLog("Planted a seed.", "text-green-300");
+                renderFarm();
+                updateUI();
+            } else {
+                createLog("Not enough vibes to plant!", "text-red-400");
+            }
+        }
+
+        function harvest(id) {
+            const plot = state.farming.plots.find(p => p.id === id);
+            if (plot.stage === 2) {
+                plot.stage = 0;
+                const yieldAmount = 1;
+                state.farming.bioVibes += yieldAmount;
+                
+                spawnFloatingText(event.clientX, event.clientY, `+${yieldAmount}🥕`, true);
+                createLog("Harvested a Bio-Vibe!", "text-orange-400");
+                renderFarm();
+            }
+        }
+
+        function buyMarketItem(id) {
+            const item = FARM_MARKET.find(i => i.id === id);
+            if (state.farming.bioVibes >= item.cost) {
+                state.farming.bioVibes -= item.cost;
+                state.farming.upgrades[id] = (state.farming.upgrades[id] || 0) + 1;
+                createLog(`Bought ${item.name}!`, "text-orange-400");
+                renderFarm();
+                updateUI(); // To update VPS/Click power if changed
+            }
         }
 
         // --- Interaction Handlers ---
@@ -584,6 +841,58 @@
                 spawnFloatingText(x, y, `+${(vps/2).toFixed(0)}`, false);
             }
 
+            // Farming Logic
+            if (state.farming) {
+                let farmChanged = false;
+                state.farming.plots.forEach(plot => {
+                    if (plot.stage === 1) {
+                        plot.timer -= dt;
+                        if (plot.timer <= 0) {
+                            plot.stage = 2; // Ripe
+                            farmChanged = true;
+                            createLog("A crop is ripe!", "text-green-400");
+                        }
+                    }
+                });
+                
+                // Update Farm UI if active (for growth bars)
+                if (dom.tabFarm.classList.contains('active')) {
+                    // We can optimize this to not re-render everything, but for now it's fine
+                    // Or just update bars manually? Re-rendering is safer for state sync.
+                    // To avoid flickering, maybe only re-render if changed OR update bars directly.
+                    // Let's just re-render if changed, and update bars manually for smoothness.
+                    if (farmChanged) renderFarm();
+                    
+                    // Update growth bars
+                    const bars = document.querySelectorAll('.crop-growth');
+                    state.farming.plots.forEach((plot, i) => {
+                        if (plot.stage === 1 && bars[i]) { // This indexing might be off if grid changes
+                            // Actually, renderFarm recreates elements, so we can't easily select by index unless we know order matches.
+                            // Let's just rely on CSS transition for now, but we need to set the height.
+                            // Wait, renderFarm sets height based on state. If we don't call renderFarm, height doesn't update.
+                            // So we MUST call renderFarm or update styles.
+                            // Let's call renderFarm every second? No, that's choppy.
+                            // Let's update the specific DOM elements.
+                        }
+                    });
+                    
+                    // Actually, let's just call renderFarm() if farmChanged. 
+                    // For the smooth bar, we can use CSS animation? No, time varies.
+                    // Let's just let renderFarm handle it when called. 
+                    // If we want smooth progress, we need to update the style.height in the loop.
+                    // But finding the element is tricky without IDs.
+                    // Let's add IDs to plots in renderFarm.
+                }
+                
+                // Force re-render periodically for growth progress? 
+                // Or just let the user see it jump when they click something?
+                // Let's do a simple check: if any crop is growing, renderFarm every 1s.
+                const isGrowing = state.farming.plots.some(p => p.stage === 1);
+                if (isGrowing && dom.tabFarm.classList.contains('active') && Math.random() < 0.1) {
+                     renderFarm();
+                }
+            }
+
             // Timers
             autoSaveTimer += dt;
             if (autoSaveTimer > 30) {
@@ -626,6 +935,16 @@
                         // Merge safe to ensure new fields in future don't break
                         state = { ...state, ...parsed };
                         
+                        // Ensure farming state exists for old saves
+                        if (!state.farming) {
+                            state.farming = {
+                                unlocked: false,
+                                bioVibes: 0,
+                                plots: Array(9).fill().map((_, i) => ({ id: i, stage: 0, timer: 0, maxTime: 0 })),
+                                upgrades: {}
+                            };
+                        }
+
                         // Recalculate Rank
                         let rIndex = 0;
                         for(let i=0; i<RANKS.length; i++) {

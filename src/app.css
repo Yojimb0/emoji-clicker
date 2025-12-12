@@ -1,0 +1,190 @@
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;600&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+	font-family: 'Fredoka', sans-serif;
+	overflow: hidden;
+	touch-action: manipulation;
+}
+
+/* Animations */
+@keyframes floatUp {
+	0% { transform: translateY(0) scale(1); opacity: 1; }
+	100% { transform: translateY(-100px) scale(1.2); opacity: 0; }
+}
+
+@keyframes pulse-emoji {
+	0% { transform: scale(1); }
+	50% { transform: scale(0.95); }
+	100% { transform: scale(1); }
+}
+
+@keyframes wobble {
+	0% { transform: rotate(0deg); }
+	25% { transform: rotate(-5deg); }
+	75% { transform: rotate(5deg); }
+	100% { transform: rotate(0deg); }
+}
+
+@keyframes shine {
+	0% { background-position: -200% center; }
+	100% { background-position: 200% center; }
+}
+
+.floating-text {
+	position: absolute;
+	pointer-events: none;
+	animation: floatUp 1s ease-out forwards;
+	font-weight: bold;
+	text-shadow: 2px 2px 0px rgba(0,0,0,0.2);
+	z-index: 50;
+}
+
+.emoji-btn:active {
+	transform: scale(0.9);
+}
+
+.emoji-main {
+	transition: all 0.2s ease;
+	user-select: none;
+	cursor: pointer;
+}
+
+.emoji-main:hover {
+	filter: drop-shadow(0 0 15px rgba(255, 215, 0, 0.6));
+	transform: scale(1.05);
+}
+
+.particle {
+	position: absolute;
+	pointer-events: none;
+	animation: floatUp 1.5s ease-out forwards;
+	font-size: 1.5rem;
+	z-index: 40;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+	width: 8px;
+}
+::-webkit-scrollbar-track {
+	background: #1f2937; 
+}
+::-webkit-scrollbar-thumb {
+	background: #4b5563; 
+	border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+	background: #6b7280; 
+}
+
+.locked-item {
+	filter: grayscale(1);
+	opacity: 0.6;
+	pointer-events: none;
+}
+
+.bg-pattern {
+	background-color: #111827;
+	background-image: radial-gradient(#374151 1px, transparent 1px);
+	background-size: 20px 20px;
+}
+
+.shiny-text {
+	background: linear-gradient(to right, #fbbf24, #fff, #fbbf24);
+	background-size: 200% auto;
+	color: transparent;
+	-webkit-background-clip: text;
+	background-clip: text;
+	animation: shine 3s linear infinite;
+}
+
+/* Background Visuals */
+.bg-visual-item {
+	position: absolute;
+	opacity: 0.15;
+	font-size: 2rem;
+	user-select: none;
+}
+
+@keyframes anim-wiggle {
+	0%, 100% { transform: rotate(-10deg); }
+	50% { transform: rotate(10deg); }
+}
+@keyframes anim-float {
+	0%, 100% { transform: translateY(0); }
+	50% { transform: translateY(-20px); }
+}
+@keyframes anim-pop {
+	0% { transform: scale(0.8); }
+	50% { transform: scale(1.1); }
+	100% { transform: scale(0.8); }
+}
+@keyframes anim-bounce {
+	0%, 100% { transform: translateY(0); }
+	50% { transform: translateY(-30px) scaleY(0.9); }
+}
+@keyframes anim-drift {
+	0% { transform: translateX(-10px) rotate(0deg); }
+	100% { transform: translateX(10px) rotate(5deg); }
+}
+@keyframes anim-pulse-glow {
+	0% { transform: scale(1); filter: brightness(1); }
+	50% { transform: scale(1.1); filter: brightness(1.5); }
+	100% { transform: scale(1); filter: brightness(1); }
+}
+
+.anim-wiggle { animation: anim-wiggle 2s ease-in-out infinite; }
+.anim-float { animation: anim-float 4s ease-in-out infinite; }
+.anim-pop { animation: anim-pop 0.5s ease-in-out infinite; }
+.anim-bounce { animation: anim-bounce 1s ease-in-out infinite; }
+.anim-drift { animation: anim-drift 5s alternate infinite; }
+.anim-pulse-glow { animation: anim-pulse-glow 3s ease-in-out infinite; }
+
+/* Log Popover */
+.log-popover {
+	transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+	height: 48px;
+}
+.log-popover.expanded {
+	height: 320px;
+}
+
+/* Farming CSS */
+.tab-btn {
+	@apply px-4 py-2 text-sm font-bold text-gray-400 border-b-2 border-transparent transition hover:text-white;
+}
+.tab-btn.active {
+	@apply text-yellow-400 border-yellow-400;
+}
+
+.farm-grid {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 8px;
+	width: 100%;
+	max-width: 300px;
+}
+
+.farm-plot {
+	aspect-ratio: 1;
+	@apply bg-gray-800 rounded-lg border-2 border-gray-700 relative cursor-pointer transition hover:border-gray-500 flex items-center justify-center text-3xl select-none;
+}
+
+.farm-plot:active { transform: scale(0.95); }
+.farm-plot.locked { @apply opacity-50 cursor-not-allowed bg-gray-900 border-gray-800; }
+
+.crop-growth { 
+	position: absolute; 
+	bottom: 0; 
+	left: 0; 
+	right: 0; 
+	background: #10b981; 
+	opacity: 0.2; 
+	transition: height 0.5s linear; 
+	pointer-events: none; 
+}
+
+
