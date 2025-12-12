@@ -9,6 +9,28 @@ npm install
 npm run dev
 ```
 
+The app will be available at `http://localhost:5173`
+
+## Testing
+
+Run the test suite:
+
+```bash
+npm run test
+```
+
+Run tests in watch mode:
+
+```bash
+npm run test -- --watch
+```
+
+Run tests with UI:
+
+```bash
+npm run test:ui
+```
+
 ## Build
 
 ```bash
@@ -29,4 +51,12 @@ The site will be available at: `https://Yojimb0.github.io/emoji-clicker/`
 - Rank up and evolve your emoji
 - Save/load game progress
 
+## Test Coverage
 
+The project includes comprehensive tests for:
+- Game logic (VPS calculation, click power, building costs)
+- Save/load system
+- Farming mechanics
+- Integration tests for game flow
+
+Run `npm run test` to see all tests pass.

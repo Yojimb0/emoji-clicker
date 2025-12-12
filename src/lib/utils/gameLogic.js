@@ -1,4 +1,4 @@
-import { BUILDINGS, FARM_MARKET } from '../stores/gameStore.js';
+import { BUILDINGS } from '../stores/gameStore.js';
 
 export function getVibesPerSecond(state) {
 	let vps = 0;
