@@ -44,6 +44,15 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: build
+      
+      - name: Verify build output
+        run: |
+          echo "Build contents:"
+          ls -la build/
+          echo "Checking for SvelteKit files:"
+          test -f build/index.html && echo "✓ index.html exists" || echo "✗ index.html missing"
+          test -f build/.nojekyll && echo "✓ .nojekyll exists" || echo "✗ .nojekyll missing"
+          test -d build/_app && echo "✓ _app directory exists" || echo "✗ _app directory missing"
 
   deploy:
     environment:
