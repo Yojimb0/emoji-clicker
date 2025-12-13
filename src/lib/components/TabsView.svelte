@@ -44,19 +44,13 @@
 
 <style>
 	.tabs-view {
-		display: none;
-		flex: 0 0 33.333333%;
+		display: flex;
+		width: 100%;
+		height: 100%;
 		flex-direction: column;
 		background-color: rgba(17, 24, 39, 0.8);
-		border-right: 1px solid #374151;
 		position: relative;
 		overflow: hidden;
-	}
-	
-	@media (min-width: 1024px) {
-		.tabs-view {
-			display: flex;
-		}
 	}
 	
 	.tabs-bar {

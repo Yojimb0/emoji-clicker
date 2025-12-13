@@ -100,23 +100,16 @@
 <style>
 	.clicker-column {
 		width: 100%;
-		flex: 0 0 33.333333%;
+		height: 100%;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
 		position: relative;
 		padding: 24px;
-		border-right: 1px solid #374151;
 		background-color: rgba(17, 24, 39, 0.9);
 		backdrop-filter: blur(4px);
 		overflow: hidden;
-	}
-	
-	@media (min-width: 768px) {
-		.clicker-column {
-			width: 100%;
-		}
 	}
 	
 	.bg-visuals {

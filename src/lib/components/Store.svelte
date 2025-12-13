@@ -54,24 +54,11 @@
 <style>
 	.store-column {
 		width: 100%;
-		flex: 0 0 66.666667%;
+		height: 100%;
 		background-color: #1f2937;
 		display: flex;
 		flex-direction: column;
-		border-left: 1px solid #374151;
 		z-index: 10;
-	}
-	
-	@media (min-width: 768px) {
-		.store-column {
-			flex: 0 0 66.666667%;
-		}
-	}
-	
-	@media (min-width: 1024px) {
-		.store-column {
-			flex: 0 0 33.333333%;
-		}
 	}
 	
 	.store-header {

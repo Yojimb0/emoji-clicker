@@ -39,10 +39,21 @@ export const NEWS = [
 	"Vibe check passed successfully."
 ];
 
+export const VEGGIE_TYPES = [
+	{ id: 'carrot', emoji: '🥕', name: 'Carrot', color: '#fb923c', unlocked: true, unlockCost: 0, yield: 1, factoryRate: 1 },
+	{ id: 'tomato', emoji: '🍅', name: 'Tomato', color: '#ef4444', unlocked: false, unlockCost: 500, yield: 2, factoryRate: 1.5 },
+	{ id: 'corn', emoji: '🌽', name: 'Corn', color: '#fbbf24', unlocked: false, unlockCost: 1000, yield: 3, factoryRate: 2 }
+];
+
 export const FARM_MARKET = [
-	{ id: 'fertilizer', name: 'Fertilizer', icon: '💩', cost: 10, desc: '+10% Global VPS', effect: (s) => 1.1 },
-	{ id: 'gmo_seeds', name: 'GMO Seeds', icon: '🧬', cost: 50, desc: 'Crops grow 2x faster', effect: (s) => 1 },
-	{ id: 'cursor_feed', name: 'Cursor Feed', icon: '💪', cost: 100, desc: '+50% Click Power', effect: (s) => 1.5 }
+	{ id: 'fertilizer', name: 'Fertilizer', icon: '💩', cost: 10, desc: '+10% Global VPS & Yield', effect: (s) => 1.1, stackable: true },
+	{ id: 'gmo_carrot', name: 'GMO Carrots', icon: '🧬', cost: 50, desc: 'Carrots grow 2x faster', effect: (s) => 1, stackable: true },
+	{ id: 'gmo_tomato', name: 'GMO Tomatoes', icon: '🧬', cost: 50, desc: 'Tomatoes grow 2x faster', effect: (s) => 1, stackable: true },
+	{ id: 'gmo_corn', name: 'GMO Corn', icon: '🧬', cost: 50, desc: 'Corn grows 2x faster', effect: (s) => 1, stackable: true },
+	{ id: 'cursor_feed', name: 'Cursor Feed', icon: '💪', cost: 100, desc: '+50% Click Power', effect: (s) => 1.5, stackable: true },
+	{ id: 'hover_harvest', name: 'Hover Harvest', icon: '✨', cost: 200, desc: 'Plant/harvest on hover & focus', effect: (s) => 1, stackable: false },
+	{ id: 'factory', name: 'Factory', icon: '🏭', cost: 300, desc: 'Convert veggie stocks to Bio-Vibes', effect: (s) => 1, stackable: false },
+	{ id: 'extra_plot', name: 'Extra Plot', icon: '🌾', cost: 500, desc: 'Add one more farming plot (cost doubles)', effect: (s) => 1, stackable: false }
 ];
 
 function createGameState() {
@@ -54,8 +65,13 @@ function createGameState() {
 		farming: {
 			unlocked: false,
 			bioVibes: 0,
-			plots: Array(9).fill().map((_, i) => ({ id: i, stage: 0, timer: 0, maxTime: 0 })),
-			upgrades: {}
+			plots: Array(9).fill().map((_, i) => ({ id: i, stage: 0, timer: 0, maxTime: 0, veggieType: 'carrot' })),
+			upgrades: {},
+			extraPlots: 0,
+			stocks: { carrot: 0, tomato: 0, corn: 0 },
+			unlockedVeggies: ['carrot'],
+			factory: { enabled: false, conversionRate: 1 },
+			selectedVeggieType: 'carrot'
 		}
 	};
 
@@ -75,10 +91,26 @@ function createGameState() {
 				merged.farming = {
 					unlocked: false,
 					bioVibes: 0,
-					plots: Array(9).fill().map((_, i) => ({ id: i, stage: 0, timer: 0, maxTime: 0 })),
-					upgrades: {}
+					plots: Array(9).fill().map((_, i) => ({ id: i, stage: 0, timer: 0, maxTime: 0, veggieType: 'carrot' })),
+					upgrades: {},
+					extraPlots: 0,
+					stocks: { carrot: 0, tomato: 0, corn: 0 },
+					unlockedVeggies: ['carrot'],
+					factory: { enabled: false, conversionRate: 1 },
+					selectedVeggieType: 'carrot'
 				};
 			}
+			// Ensure plots have veggieType
+			if (merged.farming.plots) {
+				merged.farming.plots.forEach(plot => {
+					if (!plot.veggieType) plot.veggieType = 'carrot';
+				});
+			}
+			if (merged.farming.extraPlots === undefined) merged.farming.extraPlots = 0;
+			if (!merged.farming.stocks) merged.farming.stocks = { carrot: 0, tomato: 0, corn: 0 };
+			if (!merged.farming.unlockedVeggies) merged.farming.unlockedVeggies = ['carrot'];
+			if (!merged.farming.factory) merged.farming.factory = { enabled: false, conversionRate: 1 };
+			if (!merged.farming.selectedVeggieType) merged.farming.selectedVeggieType = 'carrot';
 			set(merged);
 		}
 	};

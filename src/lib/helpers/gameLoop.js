@@ -1,4 +1,4 @@
-import { gameState, currentRankIndex, RANKS } from '../stores/gameStore.js';
+import { gameState, currentRankIndex, RANKS, VEGGIE_TYPES } from '../stores/gameStore.js';
 import { getVibesPerSecond } from '../utils/gameLogic.js';
 import { saveGame } from '../utils/saveSystem.js';
 import { createLog } from './logging.js';
@@ -6,6 +6,7 @@ import { get } from 'svelte/store';
 
 let lastTime = Date.now();
 let autoSaveTimer = 0;
+let factoryTimer = 0;
 let gameLoopId = null;
 
 export function startGameLoop(onTick, onEvolve) {
@@ -33,6 +34,32 @@ export function startGameLoop(onTick, onEvolve) {
 						}
 					}
 				});
+				
+				// Factory automatic conversion (every 5 seconds)
+				if (state.farming.factory && state.farming.factory.enabled) {
+					factoryTimer += dt;
+					if (factoryTimer >= 5) {
+						factoryTimer = 0;
+						const stocks = state.farming.stocks || { carrot: 0, tomato: 0, corn: 0 };
+						let totalConverted = 0;
+						
+						VEGGIE_TYPES.forEach(veggie => {
+							const stock = stocks[veggie.id] || 0;
+							if (stock > 0) {
+								const converted = Math.floor(stock * veggie.factoryRate * state.farming.factory.conversionRate);
+								totalConverted += converted;
+								stocks[veggie.id] = 0;
+							}
+						});
+						
+						if (totalConverted > 0) {
+							state.farming.bioVibes += totalConverted;
+							state.farming.stocks = stocks;
+							createLog(`Factory auto-converted ${totalConverted}⚡`, "text-blue-400");
+							saveGame(state);
+						}
+					}
+				}
 			}
 			
 			// Check for rank evolution
