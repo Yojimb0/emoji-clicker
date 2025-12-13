@@ -16,3 +16,12 @@ const localStorageMock = {
 };
 global.localStorage = localStorageMock;
 
+// Mock createLog and spawnFloatingText
+vi.mock('../lib/helpers/logging.js', () => ({
+	createLog: vi.fn()
+}));
+
+vi.mock('../lib/helpers/visuals.js', () => ({
+	spawnFloatingText: vi.fn()
+}));
+

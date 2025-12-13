@@ -18,8 +18,17 @@ describe('Integration Tests', () => {
 			farming: {
 				unlocked: false,
 				bioVibes: 0,
-				plots: Array(9).fill().map((_, i) => ({ id: i, stage: 0, timer: 0, maxTime: 0 })),
-				upgrades: {}
+				plots: Array(9).fill().map((_, i) => ({ id: i, stage: 0, timer: 0, maxTime: 0, veggieType: 'carrot' })),
+				upgrades: {},
+				stocks: { carrot: 0, tomato: 0, corn: 0 },
+				unlockedVeggies: ['carrot'],
+				factory: { enabled: false, conversionRate: 1 },
+				selectedVeggieType: 'carrot',
+				fertilizer: {
+					active: 0,
+					lastDecayTime: Date.now()
+				},
+				extraPlots: 0
 			}
 		});
 	});

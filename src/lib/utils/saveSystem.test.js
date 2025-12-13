@@ -18,8 +18,17 @@ describe('saveSystem', () => {
 			farming: {
 				unlocked: false,
 				bioVibes: 0,
-				plots: Array(9).fill().map((_, i) => ({ id: i, stage: 0, timer: 0, maxTime: 0 })),
-				upgrades: {}
+				plots: Array(9).fill().map((_, i) => ({ id: i, stage: 0, timer: 0, maxTime: 0, veggieType: 'carrot' })),
+				upgrades: {},
+				stocks: { carrot: 0, tomato: 0, corn: 0 },
+				unlockedVeggies: ['carrot'],
+				factory: { enabled: false, conversionRate: 1 },
+				selectedVeggieType: 'carrot',
+				fertilizer: {
+					active: 0,
+					lastDecayTime: Date.now()
+				},
+				extraPlots: 0
 			}
 		});
 	});
@@ -35,7 +44,16 @@ describe('saveSystem', () => {
 					unlocked: true,
 					bioVibes: 10,
 					plots: [],
-					upgrades: { fertilizer: 2 }
+					upgrades: { fertilizer: 2 },
+					stocks: { carrot: 0, tomato: 0, corn: 0 },
+					unlockedVeggies: ['carrot'],
+					factory: { enabled: false, conversionRate: 1 },
+					selectedVeggieType: 'carrot',
+					fertilizer: {
+						active: 2,
+						lastDecayTime: Date.now()
+					},
+					extraPlots: 0
 				}
 			};
 			
@@ -63,8 +81,17 @@ describe('saveSystem', () => {
 				farming: {
 					unlocked: true,
 					bioVibes: 10,
-					plots: Array(9).fill().map((_, i) => ({ id: i, stage: 0, timer: 0, maxTime: 0 })),
-					upgrades: { fertilizer: 2 }
+					plots: Array(9).fill().map((_, i) => ({ id: i, stage: 0, timer: 0, maxTime: 0, veggieType: 'carrot' })),
+					upgrades: { fertilizer: 2 },
+					stocks: { carrot: 0, tomato: 0, corn: 0 },
+					unlockedVeggies: ['carrot'],
+					factory: { enabled: false, conversionRate: 1 },
+					selectedVeggieType: 'carrot',
+					fertilizer: {
+						active: 2,
+						lastDecayTime: Date.now()
+					},
+					extraPlots: 0
 				}
 			};
 			

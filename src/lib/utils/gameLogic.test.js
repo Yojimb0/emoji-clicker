@@ -37,13 +37,13 @@ describe('gameLogic', () => {
 
 		it('should apply fertilizer bonus', () => {
 			mockState.inventory.cursor = 10; // 10 * 0.5 = 5.0
-			mockState.farming.upgrades.fertilizer = 1; // +10%
+			mockState.farming.fertilizer = { active: 1, lastDecayTime: Date.now() }; // +10%
 			expect(getVibesPerSecond(mockState)).toBe(5.5);
 		});
 
 		it('should stack multiple fertilizer upgrades', () => {
 			mockState.inventory.cursor = 10; // 10 * 0.5 = 5.0
-			mockState.farming.upgrades.fertilizer = 3; // +30%
+			mockState.farming.fertilizer = { active: 3, lastDecayTime: Date.now() }; // +30%
 			expect(getVibesPerSecond(mockState)).toBe(6.5);
 		});
 	});
