@@ -1,0 +1,27 @@
+{
+	"$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+	"organizeImports": {
+		"enabled": true
+	},
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"recommended": true,
+			"suspicious": {
+				"noUnusedVariables": {
+					"level": "warn"
+				}
+			},
+			"correctness": {
+				"useExhaustiveDependencies": "off",
+				"noUnusedImports": {
+					"level": "warn"
+				}
+			}
+		}
+	},
+	"files": {
+		"ignore": ["**/*.svelte"]
+	}
+}
+
