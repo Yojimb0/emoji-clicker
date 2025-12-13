@@ -6,8 +6,8 @@ import { spawnFloatingText } from './visuals.js';
 export function plant(id, floaterContainer, veggieType = null) {
 	gameState.update(state => {
 		const cost = 100;
-		if (state.vibes >= cost) {
-			state.vibes -= cost;
+		if (state.farming.bioVibes >= cost) {
+			state.farming.bioVibes -= cost;
 			const plot = state.farming.plots.find(p => p.id === id);
 			plot.stage = 1;
 			
@@ -32,7 +32,7 @@ export function plant(id, floaterContainer, veggieType = null) {
 			createLog(`Planted ${veggie.name}!`, "text-green-300");
 			saveGame(state);
 		} else {
-			createLog("Not enough vibes to plant!", "text-red-400");
+			createLog("Not enough Bio-Vibes to plant! Need 100⚡", "text-red-400");
 		}
 		return state;
 	});
@@ -45,10 +45,11 @@ export function harvest(id, event, floaterContainer) {
 			plot.stage = 0;
 			const plotVeggie = VEGGIE_TYPES.find(v => v.id === plot.veggieType) || VEGGIE_TYPES[0];
 			
-			// Base yield from veggie type, fertilizer increases it by 10% per upgrade
+			// Base yield from veggie type, fertilizer increases it by 10% per active fertilizer
 			let yieldAmount = plotVeggie.yield;
-			if (state.farming.upgrades['fertilizer']) {
-				yieldAmount *= (1 + (state.farming.upgrades['fertilizer'] * 0.1));
+			const activeFertilizer = state.farming.fertilizer?.active || 0;
+			if (activeFertilizer > 0) {
+				yieldAmount *= (1 + (activeFertilizer * 0.1));
 			}
 			yieldAmount = Math.floor(yieldAmount);
 			
@@ -225,6 +226,15 @@ export function buyMarketItem(id) {
 			state.farming.bioVibes -= item.cost;
 			if (item.stackable) {
 				state.farming.upgrades[id] = (state.farming.upgrades[id] || 0) + 1;
+				
+				// Handle fertilizer separately
+				if (id === 'fertilizer') {
+					if (!state.farming.fertilizer) {
+						state.farming.fertilizer = { purchased: 0, active: 0, lastDecayTime: Date.now() };
+					}
+					state.farming.fertilizer.purchased += 1;
+					state.farming.fertilizer.active += 1;
+				}
 			} else {
 				state.farming.upgrades[id] = 1;
 			}
@@ -244,10 +254,25 @@ export function getExtraPlotCost(extraPlots) {
 export function getYieldAmount(state, veggieType = 'carrot') {
 	const veggie = VEGGIE_TYPES.find(v => v.id === veggieType) || VEGGIE_TYPES[0];
 	let yieldAmount = veggie.yield;
-	if (state.farming.upgrades['fertilizer']) {
-		yieldAmount *= (1 + (state.farming.upgrades['fertilizer'] * 0.1));
+	const activeFertilizer = state.farming.fertilizer?.active || 0;
+	if (activeFertilizer > 0) {
+		yieldAmount *= (1 + (activeFertilizer * 0.1));
 	}
 	return Math.floor(yieldAmount);
+}
+
+export function getFertilizerNextThreshold(veggieType = 'carrot') {
+	const veggie = VEGGIE_TYPES.find(v => v.id === veggieType) || VEGGIE_TYPES[0];
+	const baseYield = veggie.yield;
+	// Find next fertilizer count that increases yield
+	for (let i = 1; i <= 100; i++) {
+		const yieldAtI = Math.floor(baseYield * (1 + (i * 0.1)));
+		const yieldAtPrev = Math.floor(baseYield * (1 + ((i - 1) * 0.1)));
+		if (yieldAtI > yieldAtPrev) {
+			return i;
+		}
+	}
+	return null;
 }
 
 export function getGMORate(state, veggieType) {

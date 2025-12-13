@@ -25,12 +25,31 @@ export function startGameLoop(onTick, onEvolve) {
 			
 			// Farming logic
 			if (state.farming) {
+				// Fertilizer decay (1 per hour)
+				if (state.farming.fertilizer && state.farming.fertilizer.active > 0) {
+					const now = Date.now();
+					const lastDecay = state.farming.fertilizer.lastDecayTime || now;
+					const hoursSinceDecay = (now - lastDecay) / (1000 * 60 * 60);
+					
+					if (hoursSinceDecay >= 1) {
+						const decayAmount = Math.floor(hoursSinceDecay);
+						state.farming.fertilizer.active = Math.max(0, state.farming.fertilizer.active - decayAmount);
+						state.farming.fertilizer.lastDecayTime = now - ((hoursSinceDecay - decayAmount) * 1000 * 60 * 60);
+						
+						if (decayAmount > 0) {
+							createLog(`Fertilizer decayed: -${decayAmount} (${state.farming.fertilizer.active} remaining)`, "text-yellow-400");
+							saveGame(state);
+						}
+					}
+				}
+				
 				state.farming.plots.forEach(plot => {
 					if (plot.stage === 1) {
 						plot.timer -= dt;
 						if (plot.timer <= 0) {
 							plot.stage = 2;
-							createLog("A crop is ripe!", "text-green-400");
+							const veggie = VEGGIE_TYPES.find(v => v.id === plot.veggieType);
+							createLog(`A ${veggie?.name || 'crop'} is ripe!`, "text-green-400");
 						}
 					}
 				});

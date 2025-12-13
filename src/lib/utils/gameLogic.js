@@ -6,8 +6,11 @@ export function getVibesPerSecond(state) {
 		vps += (state.inventory[b.id] || 0) * b.baseProd;
 	});
 	
-	if (state.farming && state.farming.upgrades['fertilizer']) {
-		vps *= (1 + (state.farming.upgrades['fertilizer'] * 0.1));
+	if (state.farming && state.farming.fertilizer) {
+		const activeFertilizer = state.farming.fertilizer.active || 0;
+		if (activeFertilizer > 0) {
+			vps *= (1 + (activeFertilizer * 0.1));
+		}
 	}
 
 	return vps;

@@ -9,14 +9,36 @@
 	import Store from '$lib/components/Store.svelte';
 	import TabsView from '$lib/components/TabsView.svelte';
 	import LogPopover from '$lib/components/LogPopover.svelte';
+	import Tooltip from '$lib/components/Tooltip.svelte';
 	
-	let currentTab = 'home';
-	let activePanel = 'main'; // 'main', 'activities', 'shop'
-	let farmUnlocked = false;
+	let openPanels = ['main']; // Track which panels are open (array for reactivity)
+	let panelOrder = ['main']; // Track order panels were opened (oldest first)
 	let floaterContainerRef;
 	let stopGameLoop;
 	let rankNameRef;
 	let emojiRef;
+	let panelsContainerRef;
+	let maxPanels = 1; // Will be calculated based on viewport
+	
+	// Reactive farm unlock check
+	$: farmUnlocked = ($gameState.inventory?.['garden_patch'] || 0) > 0;
+	
+	const PANEL_CONFIG = {
+		main: { icon: '🎯', label: 'Main' },
+		farm: { icon: '🌾', label: 'Farm' },
+		shop: { icon: '🛒', label: 'Shop' }
+	};
+	
+	function isPanelOpen(panelId) {
+		return openPanels.includes(panelId);
+	}
+	
+	// Reactive statement to ensure updates
+	$: mainOpen = openPanels.includes('main');
+	$: farmOpen = openPanels.includes('farm');
+	$: shopOpen = openPanels.includes('shop');
+	$: openPanelsCount = openPanels.length;
+	$: panelWidthPercent = openPanelsCount > 0 ? (100 / openPanelsCount) : 0;
 	
 	function evolve(newIndex) {
 		currentRankIndex.set(newIndex);
@@ -50,16 +72,48 @@
 		}
 	}
 	
-	function switchPanel(panel) {
-		activePanel = panel;
+	function calculateMaxPanels() {
+		if (typeof window === 'undefined') return 1;
+		const containerWidth = panelsContainerRef?.clientWidth || window.innerWidth;
+		const minPanelWidth = 450;
+		maxPanels = Math.floor(containerWidth / minPanelWidth);
+		return Math.max(1, maxPanels);
+	}
+	
+	function togglePanel(panelId) {
+		if (openPanels.includes(panelId)) {
+			// Close panel - create new arrays to trigger reactivity
+			openPanels = openPanels.filter(p => p !== panelId);
+			panelOrder = panelOrder.filter(p => p !== panelId);
+		} else {
+			// Open panel
+			const currentOpenCount = openPanels.length;
+			const maxPanelsCount = calculateMaxPanels();
+			
+			// Create new arrays to ensure reactivity
+			let newOpenPanels = [...openPanels];
+			let newPanelOrder = [...panelOrder];
+			
+			if (currentOpenCount >= maxPanelsCount && newPanelOrder.length > 0) {
+				// No space, hide oldest panel
+				const oldestPanel = newPanelOrder[0];
+				newOpenPanels = newOpenPanels.filter(p => p !== oldestPanel);
+				newPanelOrder = newPanelOrder.filter(p => p !== oldestPanel);
+			}
+			
+			// Add new panel if not already in list
+			if (!newOpenPanels.includes(panelId)) {
+				newOpenPanels.push(panelId);
+				newPanelOrder.push(panelId);
+			}
+			
+			openPanels = newOpenPanels;
+			panelOrder = newPanelOrder;
+		}
 	}
 	
 	onMount(() => {
 		loadGame();
-		
-		const unsubscribe = gameState.subscribe(state => {
-			farmUnlocked = (state.inventory['garden_patch'] || 0) > 0;
-		});
 		
 		const cleanup = startGameLoop(null, evolve);
 		stopGameLoop = cleanup;
@@ -69,10 +123,25 @@
 			currentNews.set(text);
 		}, 10000);
 		
+		// Calculate max panels on mount and resize
+		calculateMaxPanels();
+		const handleResize = () => {
+			calculateMaxPanels();
+			// If we have more panels open than can fit, close oldest ones
+			const maxPanelsCount = calculateMaxPanels();
+			while (openPanels.length > maxPanelsCount) {
+				const oldestPanel = panelOrder[0];
+				openPanels = openPanels.filter(p => p !== oldestPanel);
+				panelOrder = panelOrder.filter(p => p !== oldestPanel);
+			}
+		};
+		window.addEventListener('resize', handleResize);
+		
 		return () => {
 			unsubscribe();
 			if (cleanup) cleanup();
 			clearInterval(newsInterval);
+			window.removeEventListener('resize', handleResize);
 		};
 	});
 </script>
@@ -82,49 +151,66 @@
 <div class="game-container">
 	<Header on:save={handleSave} on:reset={handleReset} />
 	
-	<div class="panels-container">
+	<!-- Tab Bar for Navigation -->
+	<div class="tab-bar">
+		<Tooltip text="Main" position="top">
+			<button 
+				class="tab-bar-btn" 
+				class:active={mainOpen}
+				on:click={() => togglePanel('main')}
+			>
+				<span class="tab-icon">{PANEL_CONFIG.main.icon}</span>
+			</button>
+		</Tooltip>
+		<Tooltip text={farmUnlocked ? "Farm" : `Farm locked. Purchase 🌻 Garden Patch from the Shop to unlock farming.`} position="top">
+			<button 
+				class="tab-bar-btn" 
+				class:active={farmOpen}
+				class:locked={!farmUnlocked}
+				on:click={() => togglePanel('farm')}
+				disabled={!farmUnlocked}
+			>
+				<span class="tab-icon">{PANEL_CONFIG.farm.icon}</span>
+			</button>
+		</Tooltip>
+		<Tooltip text="Shop" position="top">
+			<button 
+				class="tab-bar-btn" 
+				class:active={shopOpen}
+				on:click={() => togglePanel('shop')}
+			>
+				<span class="tab-icon">{PANEL_CONFIG.shop.icon}</span>
+			</button>
+		</Tooltip>
+	</div>
+	
+	<div bind:this={panelsContainerRef} class="panels-container">
 		<!-- Main Panel (Clicker) -->
-		<div class="panel panel-main" class:active={activePanel === 'main'}>
+		<div 
+			class="panel panel-main" 
+			class:open={mainOpen}
+			style={mainOpen ? `width: ${panelWidthPercent}%` : 'width: 0'}
+		>
 			<Clicker bind:floaterContainer={floaterContainerRef} bind:emojiRef bind:rankNameRef />
 		</div>
 		
-		<!-- Activities Panel (TabsView) -->
-		<div class="panel panel-activities" class:active={activePanel === 'activities'}>
-			<TabsView bind:currentTab {farmUnlocked} floaterContainer={floaterContainerRef} />
+		<!-- Farm Panel (TabsView) -->
+		<div 
+			class="panel panel-farm" 
+			class:open={farmOpen}
+			style={farmOpen ? `width: ${panelWidthPercent}%` : 'width: 0'}
+		>
+			<TabsView floaterContainer={floaterContainerRef} />
 		</div>
 		
 		<!-- Shop Panel (Store) -->
-		<div class="panel panel-shop" class:active={activePanel === 'shop'}>
+		<div 
+			class="panel panel-shop" 
+			class:open={shopOpen}
+			style={shopOpen ? `width: ${panelWidthPercent}%` : 'width: 0'}
+		>
 			<Store />
 		</div>
-	</div>
-	
-	<!-- Tab Bar for Navigation -->
-	<div class="tab-bar">
-		<button 
-			class="tab-bar-btn tab-main" 
-			class:active={activePanel === 'main'}
-			on:click={() => switchPanel('main')}
-		>
-			<span class="tab-icon">🎯</span>
-			<span class="tab-label">Main</span>
-		</button>
-		<button 
-			class="tab-bar-btn" 
-			class:active={activePanel === 'activities'}
-			on:click={() => switchPanel('activities')}
-		>
-			<span class="tab-icon">🎮</span>
-			<span class="tab-label">Activities</span>
-		</button>
-		<button 
-			class="tab-bar-btn" 
-			class:active={activePanel === 'shop'}
-			on:click={() => switchPanel('shop')}
-		>
-			<span class="tab-icon">🛒</span>
-			<span class="tab-label">Shop</span>
-		</button>
 	</div>
 	
 	<div bind:this={floaterContainerRef} class="floating-container"></div>
@@ -155,165 +241,114 @@
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
-		transition: transform 0.3s ease, opacity 0.3s ease;
-		border-right: 1px solid #374151;
 		min-height: 0;
 		background-color: rgba(17, 24, 39, 0.9);
+		border-right: 1px solid #374151;
+		opacity: 0;
+		width: 0;
+		transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+		flex-shrink: 0;
+		flex-grow: 0;
+		pointer-events: none;
+	}
+	
+	.panel.open {
+		opacity: 1;
+		pointer-events: auto;
+		flex-grow: 0;
+		flex-shrink: 0;
 	}
 	
 	.panel:last-child {
 		border-right: none;
 	}
 	
-	/* Narrow viewport (< 768px): Only one panel visible at a time */
-	@media (max-width: 767px) {
-		.panel {
-			position: absolute;
-			top: 0;
-			left: 0;
-			right: 0;
-			bottom: 0;
-			width: 100%;
-			height: 100%;
-			opacity: 0;
-			pointer-events: none;
-			transform: translateX(100%);
-		}
-		
-		.panel.active {
-			opacity: 1;
-			pointer-events: auto;
-			transform: translateX(0);
-			position: relative;
-			z-index: 1;
-			width: 100%;
-			height: 100%;
-		}
-	}
-	
-	/* Medium viewport (768px - 1023px): Main always visible on left, others toggle on right */
-	@media (min-width: 768px) {
-		.panel-main {
-			position: relative !important;
-			opacity: 1 !important;
-			pointer-events: auto !important;
-			transform: translateX(0) !important;
-			flex: 0 0 50%;
-			width: 50% !important;
-			height: 100% !important;
-			z-index: 1;
-		}
-		
-		.panel-activities,
-		.panel-shop {
-			position: absolute !important;
-			top: 0 !important;
-			right: 0 !important;
-			bottom: 0 !important;
-			left: 50% !important;
-			width: 50% !important;
-			height: 100% !important;
-			opacity: 0;
-			pointer-events: none;
-			transform: translateX(100%);
-			z-index: 2;
-		}
-		
-		.panel-activities.active,
-		.panel-shop.active {
-			opacity: 1 !important;
-			pointer-events: auto !important;
-			transform: translateX(0) !important;
-		}
-	}
-	
-	/* Wide viewport (≥ 1024px): All three panels visible side by side */
-	@media (min-width: 1024px) {
-		.panels-container {
-			display: flex !important;
-		}
-		
-		.panel {
-			position: relative !important;
-			opacity: 1 !important;
-			pointer-events: auto !important;
-			transform: translateX(0) !important;
-			left: auto !important;
-			right: auto !important;
-			top: auto !important;
-			bottom: auto !important;
-			width: auto !important;
-			height: 100% !important;
-			flex: 0 0 33.333% !important;
-		}
-		
-		.panel-main {
-			flex: 0 0 33.333% !important;
-		}
-		
-		.panel-activities {
-			flex: 0 0 33.333% !important;
-		}
-		
-		.panel-shop {
-			flex: 0 0 33.333% !important;
-		}
-		
-		.tab-bar {
-			display: none !important;
-		}
-	}
-	
 	.tab-bar {
 		display: flex;
-		background-color: #111827;
-		border-top: 1px solid #374151;
-		padding: 8px;
-		gap: 8px;
+		background-color: #1f2937;
+		border-bottom: 1px solid #374151;
+		padding: 4px 8px;
+		gap: 4px;
 		z-index: 30;
-		box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1);
-	}
-	
-	/* Hide Main tab on medium viewport since main panel is always visible */
-	@media (min-width: 768px) and (max-width: 1023px) {
-		.tab-main {
-			display: none;
-		}
+		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+		justify-content: center;
+		align-items: center;
+		flex-shrink: 0;
 	}
 	
 	.tab-bar-btn {
-		flex: 1;
 		display: flex;
-		flex-direction: column;
 		align-items: center;
-		gap: 4px;
-		padding: 8px;
-		background-color: #1f2937;
-		border: 1px solid #374151;
-		border-radius: 8px;
-		color: #9ca3af;
+		justify-content: center;
+		width: 32px;
+		height: 32px;
+		padding: 0;
+		background-color: transparent;
+		border: none;
+		border-radius: 6px;
 		cursor: pointer;
-		transition: all 0.2s;
+		transition: all 0.15s ease;
+		position: relative;
 	}
 	
-	.tab-bar-btn:hover {
-		background-color: #374151;
-		color: white;
+	.tab-bar-btn:hover:not(:disabled) {
+		background-color: rgba(255, 255, 255, 0.1);
+	}
+	
+	.tab-bar-btn:disabled {
+		opacity: 0.75;
+		cursor: not-allowed;
+		pointer-events: none;
+	}
+	
+	.tab-bar-btn:disabled .tab-icon {
+		filter: grayscale(50%) brightness(0.8);
+	}
+	
+	.tab-bar-btn.locked {
+		border: 1.5px solid rgba(156, 163, 175, 0.5);
+		background-color: rgba(75, 85, 99, 0.3);
+		position: relative;
+		box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.3);
+	}
+	
+	.tab-bar-btn.locked::after {
+		content: '🔒';
+		position: absolute;
+		top: -4px;
+		right: -4px;
+		font-size: 12px;
+		opacity: 0.9;
+		pointer-events: none;
+		background-color: rgba(17, 24, 39, 0.9);
+		border-radius: 50%;
+		width: 16px;
+		height: 16px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		line-height: 1;
 	}
 	
 	.tab-bar-btn.active {
-		background-color: #fbbf24;
-		color: #111827;
-		border-color: #fbbf24;
+		background-color: rgba(59, 130, 246, 0.2);
+	}
+	
+	.tab-bar-btn.active::after {
+		content: '';
+		position: absolute;
+		bottom: 2px;
+		left: 50%;
+		transform: translateX(-50%);
+		width: 4px;
+		height: 4px;
+		background-color: #3b82f6;
+		border-radius: 50%;
 	}
 	
 	.tab-icon {
-		font-size: 20px;
-	}
-	
-	.tab-label {
-		font-size: 12px;
-		font-weight: bold;
+		font-size: 18px;
+		line-height: 1;
 	}
 	
 	.floating-container {

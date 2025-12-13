@@ -71,7 +71,12 @@ function createGameState() {
 			stocks: { carrot: 0, tomato: 0, corn: 0 },
 			unlockedVeggies: ['carrot'],
 			factory: { enabled: false, conversionRate: 1 },
-			selectedVeggieType: 'carrot'
+			selectedVeggieType: 'carrot',
+			fertilizer: {
+				purchased: 0,
+				active: 0,
+				lastDecayTime: Date.now()
+			}
 		}
 	};
 
@@ -97,7 +102,8 @@ function createGameState() {
 					stocks: { carrot: 0, tomato: 0, corn: 0 },
 					unlockedVeggies: ['carrot'],
 					factory: { enabled: false, conversionRate: 1 },
-					selectedVeggieType: 'carrot'
+					selectedVeggieType: 'carrot',
+					fertilizer: { purchased: 0, active: 0, lastDecayTime: Date.now() }
 				};
 			}
 			// Ensure plots have veggieType
@@ -111,6 +117,15 @@ function createGameState() {
 			if (!merged.farming.unlockedVeggies) merged.farming.unlockedVeggies = ['carrot'];
 			if (!merged.farming.factory) merged.farming.factory = { enabled: false, conversionRate: 1 };
 			if (!merged.farming.selectedVeggieType) merged.farming.selectedVeggieType = 'carrot';
+			// Initialize fertilizer tracking
+			if (!merged.farming.fertilizer) {
+				const oldFertilizerCount = merged.farming.upgrades?.['fertilizer'] || 0;
+				merged.farming.fertilizer = {
+					purchased: oldFertilizerCount,
+					active: oldFertilizerCount,
+					lastDecayTime: Date.now()
+				};
+			}
 			set(merged);
 		}
 	};

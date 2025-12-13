@@ -1,8 +1,12 @@
 <script>
+	import { onMount, onDestroy } from 'svelte';
 	import { gameState, FARM_MARKET, VEGGIE_TYPES } from '../stores/gameStore.js';
-	import { plant, harvest, buyMarketItem, getYieldAmount, getGMORate, getExtraPlotCost, unlockVeggie, convertStocksToBioVibes, convertVeggieStocks } from '../helpers/farming.js';
+	import { plant, harvest, buyMarketItem, getYieldAmount, getGMORate, getExtraPlotCost, unlockVeggie, convertStocksToBioVibes, convertVeggieStocks, getFertilizerNextThreshold } from '../helpers/farming.js';
 	
 	export let floaterContainer;
+	
+	let timerInterval = null;
+	let timerTick = 0; // Force reactivity
 	
 	let selectedVeggieType = 'carrot';
 	
@@ -22,8 +26,60 @@
 	}
 	
 	function getFertilizerCount() {
-		return $gameState.farming.upgrades['fertilizer'] || 0;
+		return $gameState.farming.fertilizer?.active || 0;
 	}
+	
+	function getFertilizerDecayProgress() {
+		if (!$gameState.farming.fertilizer || $gameState.farming.fertilizer.active === 0) return 0;
+		const now = Date.now();
+		const lastDecay = $gameState.farming.fertilizer.lastDecayTime || now;
+		const msSinceDecay = now - lastDecay;
+		const hourInMs = 1000 * 60 * 60;
+		return Math.min(1, msSinceDecay / hourInMs);
+	}
+	
+	function getFertilizerTimeUntilDecay() {
+		if (!$gameState.farming.fertilizer || $gameState.farming.fertilizer.active === 0) return null;
+		const now = Date.now();
+		const lastDecay = $gameState.farming.fertilizer.lastDecayTime || now;
+		const msSinceDecay = now - lastDecay;
+		const hourInMs = 1000 * 60 * 60;
+		const msUntilNextDecay = hourInMs - msSinceDecay;
+		return Math.max(0, msUntilNextDecay);
+	}
+	
+	// Reactive values for timer display
+	$: fertilizerProgress = getFertilizerDecayProgress();
+	$: fertilizerTimeLeft = getFertilizerTimeUntilDecay();
+	$: timerTick; // Force reactivity when timerTick changes
+	
+	function formatTime(ms) {
+		const minutes = Math.floor(ms / (1000 * 60));
+		const seconds = Math.floor((ms % (1000 * 60)) / 1000);
+		return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+	}
+	
+	// Timer for fertilizer decay display
+	onMount(() => {
+		const unsubscribe = gameState.subscribe(() => {
+			const active = $gameState.farming.fertilizer?.active || 0;
+			if (active > 0 && !timerInterval) {
+				timerInterval = setInterval(() => {
+					timerTick = Date.now(); // Force reactivity
+				}, 1000);
+			} else if (active === 0 && timerInterval) {
+				clearInterval(timerInterval);
+				timerInterval = null;
+			}
+		});
+		
+		return () => {
+			unsubscribe();
+			if (timerInterval) {
+				clearInterval(timerInterval);
+			}
+		};
+	});
 	
 	function getCurrentYield(veggieType = selectedVeggieType) {
 		return getYieldAmount($gameState, veggieType);
@@ -98,34 +154,34 @@
 </script>
 
 <div class="farm-view">
-	<div class="bio-vibes-display">
-		<span class="bio-label">Bio-Vibes:</span>
-		<span class="bio-amount">⚡ {$gameState.farming.bioVibes}</span>
-	</div>
-
-		<!-- Stocks Display -->
-	<div class="stocks-display">
-		<span class="stocks-label">Stocks:</span>
-		<div class="stocks-list">
-			{#each VEGGIE_TYPES as veggieType}
-				{@const stock = ($gameState.farming.stocks || {})[veggieType.id] || 0}
-				{#if isVeggieUnlocked(veggieType.id) || stock > 0}
-					<div class="stock-item">
-						<span class="stock-emoji">{veggieType.emoji}</span>
-						<span class="stock-amount">{stock}</span>
-						{#if stock > 0}
-							<button
-								class="stock-convert-btn"
-								on:click={() => convertVeggieStocks(veggieType.id)}
-								title="Convert to Bio-Vibes"
-							>
-								⚡
-							</button>
-						{/if}
-					</div>
-				{/if}
-			{/each}
+	<!-- Unified Data Display - Currencies Only -->
+	<div class="unified-data-display">
+		<!-- Bio-Vibes -->
+		<div class="data-item currency-item">
+			<span class="data-label">Bio-Vibes:</span>
+			<span class="data-icon">⚡</span>
+			<span class="data-value">{$gameState.farming.bioVibes}</span>
 		</div>
+		
+		<!-- Veggie Stocks -->
+		{#each VEGGIE_TYPES as veggieType}
+			{@const stock = ($gameState.farming.stocks || {})[veggieType.id] || 0}
+			{#if isVeggieUnlocked(veggieType.id) || stock > 0}
+				<div class="data-item currency-item">
+					<span class="data-icon">{veggieType.emoji}</span>
+					<span class="data-value">{stock}</span>
+					{#if stock > 0}
+						<button
+							class="convert-btn"
+							on:click={() => convertVeggieStocks(veggieType.id)}
+							title="Convert to Bio-Vibes"
+						>
+							⚡
+						</button>
+					{/if}
+				</div>
+			{/if}
+		{/each}
 	</div>
 
 	<!-- Factory Button -->
@@ -141,22 +197,6 @@
 			</button>
 		</div>
 	{/if}
-
-	<!-- Info Bar -->
-	<div class="farm-info-bar">
-		<div class="info-item">
-			<span class="info-label">Fertilizer:</span>
-			<span class="info-value">{getFertilizerCount()}x</span>
-		</div>
-		<div class="info-item">
-			<span class="info-label">Yield:</span>
-			<span class="info-value">{getCurrentYield(selectedVeggieType)}{VEGGIE_TYPES.find(v => v.id === selectedVeggieType)?.emoji || '🥕'}</span>
-		</div>
-		<div class="info-item">
-			<span class="info-label">GMO Rate:</span>
-			<span class="info-value">{getCurrentGMORate(selectedVeggieType)}x</span>
-		</div>
-	</div>
 
 	<div class="farm-grid">
 		{#each $gameState.farming.plots as plot (plot.id)}
@@ -243,6 +283,9 @@
 		<div class="market-items">
 			{#each FARM_MARKET as item}
 				{@const isExtraPlot = item.id === 'extra_plot'}
+				{@const isFertilizer = item.id === 'fertilizer'}
+				{@const isGMO = item.id.startsWith('gmo_')}
+				{@const veggieTypeId = isGMO ? item.id.replace('gmo_', '') : null}
 				{@const currentPlots = 9 + ($gameState.farming.extraPlots || 0)}
 				{@const plotCost = isExtraPlot ? getExtraPlotCost($gameState.farming.extraPlots || 0) : item.cost}
 				{@const cost = isExtraPlot ? (currentPlots >= 15 ? 'MAX' : plotCost) : item.cost}
@@ -252,12 +295,63 @@
 				}
 				{@const isOwned = !item.stackable && $gameState.farming.upgrades[item.id] > 0}
 				{@const isMaxPlots = isExtraPlot && currentPlots >= 15}
+				{@const fertilizerActive = isFertilizer ? getFertilizerCount() : 0}
+				{@const fertilizerProgressValue = isFertilizer ? fertilizerProgress : 0}
+				{@const fertilizerTimeLeftValue = isFertilizer ? fertilizerTimeLeft : null}
+				{@const nextThreshold = isFertilizer ? getFertilizerNextThreshold('carrot') : null}
+				{@const gmoRate = isGMO && veggieTypeId ? getCurrentGMORate(veggieTypeId) : 0}
+				{@const currentYield = isGMO && veggieTypeId ? getCurrentYield(veggieTypeId) : 0}
+				{@const veggieEmoji = isGMO && veggieTypeId ? VEGGIE_TYPES.find(v => v.id === veggieTypeId)?.emoji : ''}
 				<div class="market-item" class:owned={isOwned}>
 					<div class="market-item-content">
 						<span class="market-icon">{item.icon}</span>
-						<div>
+						<div class="market-info">
 							<div class="market-name">{item.name}</div>
 							<div class="market-desc">{item.desc}</div>
+							{#if isFertilizer}
+								<div class="fertilizer-info">
+									<div class="fertilizer-stats">
+										<span>Active: {fertilizerActive}</span>
+									</div>
+									{#if fertilizerActive > 0}
+										{@const circumference = 2 * Math.PI * 16}
+										{@const progressDash = circumference * fertilizerProgressValue}
+										{@const timeLeft = fertilizerTimeLeftValue !== null ? formatTime(fertilizerTimeLeftValue) : '0:00'}
+										<div class="fertilizer-decay">
+											<div class="decay-timer-container" title="Fertilizer decays 1 unit every hour. Time until next decay: {timeLeft}">
+												<svg class="decay-timer" viewBox="0 0 36 36">
+													<circle class="decay-timer-bg" cx="18" cy="18" r="16"></circle>
+													<circle 
+														class="decay-timer-progress" 
+														cx="18" 
+														cy="18" 
+														r="16"
+														stroke-dasharray="{progressDash} {circumference}"
+													></circle>
+												</svg>
+											</div>
+											<span class="decay-label">Decay timer</span>
+										</div>
+									{/if}
+									{#if nextThreshold && fertilizerActive < nextThreshold}
+										<div class="fertilizer-threshold">
+											Next impact at {nextThreshold} fertilizer (Carrot yield: {Math.floor(VEGGIE_TYPES.find(v => v.id === 'carrot').yield * (1 + (nextThreshold * 0.1)))}{VEGGIE_TYPES.find(v => v.id === 'carrot').emoji})
+										</div>
+									{:else if fertilizerActive > 0}
+										<div class="fertilizer-yields">
+											{#each VEGGIE_TYPES as veggie}
+												{#if isVeggieUnlocked(veggie.id)}
+													<span>{veggie.name}: {getCurrentYield(veggie.id)}{veggie.emoji}</span>
+												{/if}
+											{/each}
+										</div>
+									{/if}
+								</div>
+							{:else if isGMO && veggieTypeId && isVeggieUnlocked(veggieTypeId)}
+								<div class="market-rate">
+									Yield: {currentYield}{veggieEmoji} | GMO: {gmoRate}x
+								</div>
+							{/if}
 							{#if isOwned}
 								<div class="market-owned">Owned</div>
 							{:else if isMaxPlots}
@@ -289,72 +383,53 @@
 		overflow-y: auto;
 	}
 	
-	.bio-vibes-display {
+	.unified-data-display {
 		width: 100%;
-		max-width: 320px;
+		max-width: 600px;
 		margin-bottom: 24px;
 		background-color: rgba(31, 41, 55, 0.5);
-		padding: 12px;
+		padding: 12px 16px;
 		border-radius: 8px;
 		border: 1px solid #374151;
 		display: flex;
-		justify-content: space-between;
+		gap: 16px;
 		align-items: center;
+		flex-wrap: wrap;
 	}
 	
-	.bio-label {
-		color: #9ca3af;
-		font-size: 14px;
-	}
-	
-	.bio-amount {
-		font-size: 24px;
-		font-weight: bold;
-		color: #fbbf24;
-	}
-	
-	.stocks-display {
-		width: 100%;
-		max-width: 320px;
-		margin-bottom: 16px;
-		background-color: rgba(31, 41, 55, 0.5);
-		padding: 12px;
-		border-radius: 8px;
-		border: 1px solid #374151;
-	}
-	
-	.stocks-label {
-		color: #9ca3af;
-		font-size: 12px;
-		display: block;
-		margin-bottom: 8px;
-	}
-	
-	.stocks-list {
+	.data-item {
 		display: flex;
-		gap: 12px;
-		justify-content: center;
-	}
-	
-	.stock-item {
-		display: flex;
-		flex-direction: column;
 		align-items: center;
 		gap: 4px;
-		position: relative;
+		padding: 2px 0;
+		white-space: nowrap;
 	}
 	
-	.stock-emoji {
-		font-size: 20px;
+	.currency-item {
+		justify-content: flex-start;
 	}
 	
-	.stock-amount {
+	.data-label {
+		color: #9ca3af;
+		font-size: 12px;
+		margin-right: 4px;
+		white-space: nowrap;
+	}
+	
+	.data-icon {
+		font-size: 18px;
+		line-height: 1;
+	}
+	
+	.data-value {
 		font-size: 14px;
 		font-weight: bold;
 		color: #fbbf24;
+		min-width: 24px;
+		text-align: right;
 	}
 	
-	.stock-convert-btn {
+	.convert-btn {
 		background-color: #1e40af;
 		color: white;
 		border: none;
@@ -368,14 +443,16 @@
 		align-items: center;
 		justify-content: center;
 		padding: 0;
+		flex-shrink: 0;
+		margin-left: 4px;
 	}
 	
-	.stock-convert-btn:hover {
+	.convert-btn:hover {
 		background-color: #2563eb;
 		transform: scale(1.1);
 	}
 	
-	.stock-convert-btn:active {
+	.convert-btn:active {
 		transform: scale(0.95);
 	}
 	
@@ -591,38 +668,6 @@
 		color: var(--veggie-color, #fbbf24);
 	}
 	
-	.farm-info-bar {
-		width: 100%;
-		max-width: 320px;
-		margin-bottom: 16px;
-		background-color: rgba(31, 41, 55, 0.5);
-		padding: 12px;
-		border-radius: 8px;
-		border: 1px solid #374151;
-		display: flex;
-		justify-content: space-around;
-		gap: 8px;
-	}
-	
-	.info-item {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 4px;
-	}
-	
-	.info-label {
-		font-size: 10px;
-		color: #9ca3af;
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-	}
-	
-	.info-value {
-		font-size: 16px;
-		font-weight: bold;
-		color: #fbbf24;
-	}
 	
 	.farm-grid {
 		display: grid;
@@ -753,12 +798,19 @@
 	
 	.market-item-content {
 		display: flex;
-		align-items: center;
+		align-items: flex-start;
 		gap: 8px;
+		flex: 1;
+	}
+	
+	.market-info {
+		flex: 1;
+		min-width: 0;
 	}
 	
 	.market-icon {
 		font-size: 20px;
+		flex-shrink: 0;
 	}
 	
 	.market-name {
@@ -768,6 +820,86 @@
 	
 	.market-desc {
 		color: #9ca3af;
+		font-size: 11px;
+	}
+	
+	.market-rate {
+		font-size: 10px;
+		color: #fbbf24;
+		margin-top: 2px;
+		font-weight: 500;
+	}
+	
+	.fertilizer-info {
+		margin-top: 6px;
+		font-size: 10px;
+	}
+	
+	.fertilizer-stats {
+		display: flex;
+		gap: 12px;
+		color: #9ca3af;
+		margin-bottom: 4px;
+	}
+	
+	.fertilizer-decay {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		margin: 6px 0;
+	}
+	
+	.decay-timer-container {
+		position: relative;
+		width: 32px;
+		height: 32px;
+		flex-shrink: 0;
+		cursor: help;
+	}
+	
+	.decay-timer {
+		width: 100%;
+		height: 100%;
+		transform: rotate(-90deg);
+	}
+	
+	.decay-timer-bg {
+		fill: none;
+		stroke: #374151;
+		stroke-width: 3;
+	}
+	
+	.decay-timer-progress {
+		fill: none;
+		stroke: #fbbf24;
+		stroke-width: 3;
+		stroke-linecap: round;
+		transition: stroke-dasharray 0.3s linear;
+	}
+	
+	.decay-label {
+		font-size: 9px;
+		color: #9ca3af;
+	}
+	
+	.fertilizer-threshold {
+		color: #60a5fa;
+		font-size: 9px;
+		margin-top: 4px;
+		line-height: 1.3;
+	}
+	
+	.fertilizer-yields {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+		margin-top: 4px;
+		color: #fbbf24;
+		font-size: 9px;
+	}
+	
+	.fertilizer-yields span {
+		white-space: nowrap;
 	}
 	
 	.market-buy {
